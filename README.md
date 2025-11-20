@@ -88,9 +88,11 @@ void setSize(int w, int h, float n, float f) {
 
 ## 深度計算 (util::getDepth)
 
-使用三角形的重心座標 (Barycentric) 差值計算 Z 值
+為了實現遮擋 (Z-buffer) 或判斷進遠順序，在 `util::getDepth()` 中實作了三角形重心插值：
 
-使用的程式碼
+1. 將螢幕上某點 (x,y) 對應到三角形頂點 A, B, C
+2. 計算重心座標 w1, w2, w3
+3. 利用插值取得 z 值：
 
 ```
 public float getDepth(float x, float y, Vector3[] v) {
@@ -105,26 +107,41 @@ public float getDepth(float x, float y, Vector3[] v) {
 }
 ```
 
+這樣在繪製線或三角形頂點的時候，可以比較哪個深度值較小 (較近) 已決定是否覆蓋
+
 ## cameraControl
 
-使用鍵盤控制相機移動
+在 `HW3::cameraControl()` 函式裡實作鍵盤交互：
 
-- W / S：前後
-- A / D：左右
-- Q / E：上下
+- W / S：沿 Z 軸前後移動
+- A / D：沿 X 軸左右移動
+- Q / E：沿 Y 軸上下移動
+
+例如：
+
+```
+if (keyPressed) {
+    if (key == 'w' || key == 'W') cam_position.z += speed;
+    else if (key == 's' || key == 'S') cam_position.z -= speed;
+    else if (key == 'a' || key == 'A') cam_position.x -= speed;
+    else if (key == 'd' || key == 'D') cam_position.x += speed;
+    else if (key == 'q' || key == 'Q') cam_position.y += speed;
+    else if (key == 'e' || key == 'E') cam_position.y -= speed;
+}
+main_camera.setPositionOrientation(cam_position, lookat);
+```
+
+這樣使用者即可透過鍵盤控制視點，以不同角度觀看 3D 模型
 
 ## Back-face Culling (GameObject::debugDraw)
 
-利用三角形在 NDC (-1~1) 中的投影結果
+在 `GameObject::debugDraw()` 中，加入如下判斷：
 
-- 透過計算 2D 三角形的有向面積
-- 若面積符號表示「背面」，則跳過不畫
-
-使用的程式碼
-
+1. 將三角形頂點變換至 NDC space
+2. 計算在 NDC x-y 平面上的「有向面積」
 ```
-float area = (B.x - A.x) * (C.y - A.y) -
-             (C.x - A.x) * (B.y - A.y);
-
-if (area <= 0) continue; // 背面 → 不畫
+float area = (B.x - A.x)*(C.y - A.y) - (C.x - A.x)*(B.y - A.y);
+if (area <= 0) continue;
 ```
+
+3. 若面積小於等於 0 ，代表三角形背向攝影機，則跳過不畫。這樣能省去繪製「背對鏡頭」的邊線，提高效率並減少雜訊
